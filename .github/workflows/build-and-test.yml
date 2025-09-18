@@ -45,18 +45,15 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [${{ github.event.inputs.python_version || '3.11' }}]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python ${{ github.event.inputs.python_version || '3.11' }}
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ github.event.inputs.python_version || '3.11' }}
 
       - name: Install dependencies
         run: |
@@ -86,7 +83,7 @@ jobs:
         if: ${{ !github.event.inputs.skip_tests }}
         run: |
           echo "Test Summary:"
-          echo "Python Version: ${{ matrix.python-version }}"
+          echo "Python Version: ${{ github.event.inputs.python_version || '3.11' }}"
           echo "Test Scope: ${{ github.event.inputs.test_scope || 'all' }}"
           echo "Docker Build: ${{ !github.event.inputs.skip_docker_build }}"
           echo "Tests Skipped: ${{ github.event.inputs.skip_tests }}"
