@@ -1,0 +1,61 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ECRAuthentication",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ECRRepositoryManagement",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:CreateRepository",
+                "ecr:DescribeRepositories",
+                "ecr:DescribeRegistry",
+                "ecr:GetRepositoryPolicy",
+                "ecr:PutRepositoryPolicy",
+                "ecr:DeleteRepositoryPolicy"
+            ],
+            "Resource": [
+                "arn:aws:ecr:*:*:repository/latexonhttp-tl-distrib",
+                "arn:aws:ecr:*:*:repository/latexonhttp-python",
+                "arn:aws:ecr:*:*:repository/latexonhttp"
+            ]
+        },
+        {
+            "Sid": "ECRImageManagement",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:PutImage",
+                "ecr:BatchDeleteImage",
+                "ecr:DeleteImage",
+                "ecr:GetLifecyclePolicy",
+                "ecr:PutLifecyclePolicy",
+                "ecr:DeleteLifecyclePolicy",
+                "ecr:GetImageScanFindings",
+                "ecr:StartImageScan",
+                "ecr:DescribeImageScanFindings",
+                "ecr:ListImages",
+                "ecr:DescribeImages",
+                "ecr:TagResource",
+                "ecr:UntagResource",
+                "ecr:ListTagsForResource"
+            ],
+            "Resource": [
+                "arn:aws:ecr:*:*:repository/latexonhttp-tl-distrib",
+                "arn:aws:ecr:*:*:repository/latexonhttp-python",
+                "arn:aws:ecr:*:*:repository/latexonhttp"
+            ]
+        }
+    ]
+}

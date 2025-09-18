@@ -1,0 +1,93 @@
+name: ecr-publish
+
+on:
+  release:
+    types: [published]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_TL_DISTRIB: latexonhttp-tl-distrib
+  ECR_REPOSITORY_PYTHON: latexonhttp-python
+  ECR_REPOSITORY_MAIN: latexonhttp
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip pipx
+          pipx install poetry
+          make install
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repositories if they don't exist
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY_TL_DISTRIB }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY_TL_DISTRIB }} --region ${{ env.AWS_REGION }}
+          
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY_PYTHON }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY_PYTHON }} --region ${{ env.AWS_REGION }}
+          
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY_MAIN }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY_MAIN }} --region ${{ env.AWS_REGION }}
+
+      - name: Build Docker images
+        run: make docker-build-all
+
+      - name: Run tests (using locally built Docker images)
+        run: make test-docker-compose
+
+      - name: Tag and push TL-Distrib image to ECR
+        run: |
+          docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:debian
+          docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ github.sha }}
+          docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:debian
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:latest
+
+      - name: Tag and push Python image to ECR
+        run: |
+          docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:debian
+          docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ github.sha }}
+          docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:debian
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:latest
+
+      - name: Tag and push main image to ECR
+        run: |
+          docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
+          docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ github.sha }}
+
+      - name: Output image URIs
+        run: |
+          echo "ECR Registry: ${{ steps.login-ecr.outputs.registry }}"
+          echo "TL-Distrib Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ github.sha }}"
+          echo "Python Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ github.sha }}"
+          echo "Main Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ github.sha }}"

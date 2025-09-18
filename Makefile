@@ -48,6 +48,34 @@ docker-push-tl-distrib-debian:
 docker-push-python-debian:
 	docker push yoant/latexonhttp-python:debian
 
+## -------------------------------
+## ECR push/images ##
+## -------------------------------
+ecr-login:
+	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_REGISTRY)
+
+ecr-push-all:
+	./container/ecr_push.sh
+
+ecr-push-tl-distrib:
+	$(MAKE) ecr-login
+	docker tag yoant/latexonhttp-tl-distrib:debian $(ECR_REGISTRY)/$(ECR_REPOSITORY_TL_DISTRIB):debian
+	docker tag yoant/latexonhttp-tl-distrib:debian $(ECR_REGISTRY)/$(ECR_REPOSITORY_TL_DISTRIB):latest
+	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY_TL_DISTRIB):debian
+	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY_TL_DISTRIB):latest
+
+ecr-push-python:
+	$(MAKE) ecr-login
+	docker tag yoant/latexonhttp-python:debian $(ECR_REGISTRY)/$(ECR_REPOSITORY_PYTHON):debian
+	docker tag yoant/latexonhttp-python:debian $(ECR_REGISTRY)/$(ECR_REPOSITORY_PYTHON):latest
+	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY_PYTHON):debian
+	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY_PYTHON):latest
+
+ecr-push-main:
+	$(MAKE) ecr-login
+	docker tag latexonhttp:latest $(ECR_REGISTRY)/$(ECR_REPOSITORY_MAIN):latest
+	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY_MAIN):latest
+
 
 ## -------------------------------
 ## Docker Compose for dev ##
