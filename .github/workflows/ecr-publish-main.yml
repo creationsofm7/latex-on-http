@@ -1,0 +1,89 @@
+name: ecr-publish-main
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to use (defaults to git SHA)'
+        required: false
+        default: ''
+      push_latest:
+        description: 'Push latest tag'
+        required: false
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Skip running tests'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_MAIN: latexonhttp
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
+
+jobs:
+  build-and-push-main:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip pipx
+          pipx install poetry
+          make install
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repository if it doesn't exist
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY_MAIN }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY_MAIN }} --region ${{ env.AWS_REGION }}
+
+      - name: Build main Docker image
+        run: make docker-build-main
+
+      - name: Run tests (using locally built Docker image)
+        if: ${{ !github.event.inputs.skip_tests }}
+        run: make test-docker-compose
+
+      - name: Tag and push main image to ECR
+        run: |
+          docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ env.IMAGE_TAG }}
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
+            docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
+          fi
+
+      - name: Output image URI
+        run: |
+          echo "ECR Registry: ${{ steps.login-ecr.outputs.registry }}"
+          echo "Image Tag: ${{ env.IMAGE_TAG }}"
+          echo "Main Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ env.IMAGE_TAG }}"
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            echo "Latest tag also pushed"
+          fi

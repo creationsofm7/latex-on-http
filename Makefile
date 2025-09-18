@@ -33,7 +33,7 @@ docker-build-python-debian:
 	docker build -f container/python-debian.Dockerfile -t yoant/latexonhttp-python:debian .
 
 docker-build-main:
-	docker build -f Dockerfile .
+	docker build -f Dockerfile -t latexonhttp:latest .
 
 docker-build-all-debian: docker-pull-yoant-texlive-debian docker-build-tl-distrib-debian docker-build-python-debian docker-build-main
 
