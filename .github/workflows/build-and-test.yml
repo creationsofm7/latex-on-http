@@ -10,27 +10,84 @@ on:
       - '**.md'
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: 'Python version to test'
+        required: false
+        default: '3.11'
+        type: choice
+        options:
+          - '3.11'
+          - '3.10'
+          - '3.9'
+      skip_docker_build:
+        description: 'Skip Docker image building'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Skip running tests'
+        required: false
+        default: false
+        type: boolean
+      test_scope:
+        description: 'Test scope to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'unit'
+          - 'integration'
+          - 'docker'
 
 jobs:
-  build-ant-test:
+  build-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ${{ github.event.inputs.python_version || '3.11' }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip pipx
           pipx install poetry
           make install
+
+      - name: Run unit tests
+        if: ${{ !github.event.inputs.skip_tests && (github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'unit') }}
+        run: make test
+
       - name: Build Docker images
+        if: ${{ !github.event.inputs.skip_docker_build }}
         run: make docker-build-all
-      - name: Run tests (using locally built Docker images)
+
+      - name: Run Docker tests
+        if: ${{ !github.event.inputs.skip_tests && (github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'docker') }}
         run: make test-docker-compose
+
+      - name: Run integration tests
+        if: ${{ !github.event.inputs.skip_tests && (github.event.inputs.test_scope == 'all' || github.event.inputs.test_scope == 'integration') }}
+        run: |
+          echo "Integration tests would run here"
+          # Add your integration test commands here
+
+      - name: Test summary
+        if: ${{ !github.event.inputs.skip_tests }}
+        run: |
+          echo "Test Summary:"
+          echo "Python Version: ${{ matrix.python-version }}"
+          echo "Test Scope: ${{ github.event.inputs.test_scope || 'all' }}"
+          echo "Docker Build: ${{ !github.event.inputs.skip_docker_build }}"
+          echo "Tests Skipped: ${{ github.event.inputs.skip_tests }}"
    

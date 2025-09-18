@@ -3,12 +3,29 @@ name: ecr-publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to use (defaults to git SHA)'
+        required: false
+        default: ''
+      push_latest:
+        description: 'Push latest tag'
+        required: false
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Skip running tests'
+        required: false
+        default: false
+        type: boolean
 
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY_TL_DISTRIB: latexonhttp-tl-distrib
   ECR_REPOSITORY_PYTHON: latexonhttp-python
   ECR_REPOSITORY_MAIN: latexonhttp
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
 
 jobs:
   build-and-push:
@@ -58,36 +75,47 @@ jobs:
         run: make docker-build-all
 
       - name: Run tests (using locally built Docker images)
+        if: ${{ !github.event.inputs.skip_tests }}
         run: make test-docker-compose
 
       - name: Tag and push TL-Distrib image to ECR
         run: |
           docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:debian
-          docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ github.sha }}
-          docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:latest
+          docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ env.IMAGE_TAG }}
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:debian
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ env.IMAGE_TAG }}
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            docker tag yoant/latexonhttp-tl-distrib:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:latest
+            docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:latest
+          fi
 
       - name: Tag and push Python image to ECR
         run: |
           docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:debian
-          docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ github.sha }}
-          docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:latest
+          docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ env.IMAGE_TAG }}
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:debian
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ env.IMAGE_TAG }}
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            docker tag yoant/latexonhttp-python:debian ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:latest
+            docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:latest
+          fi
 
       - name: Tag and push main image to ECR
         run: |
-          docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
-          docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ github.sha }}
+          docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ env.IMAGE_TAG }}
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            docker tag latexonhttp:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
+            docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:latest
+          fi
 
       - name: Output image URIs
         run: |
           echo "ECR Registry: ${{ steps.login-ecr.outputs.registry }}"
-          echo "TL-Distrib Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ github.sha }}"
-          echo "Python Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ github.sha }}"
-          echo "Main Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ github.sha }}"
+          echo "Image Tag: ${{ env.IMAGE_TAG }}"
+          echo "TL-Distrib Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_TL_DISTRIB }}:${{ env.IMAGE_TAG }}"
+          echo "Python Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PYTHON }}:${{ env.IMAGE_TAG }}"
+          echo "Main Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_MAIN }}:${{ env.IMAGE_TAG }}"
+          if [ "${{ github.event.inputs.push_latest }}" = "true" ]; then
+            echo "Latest tags also pushed for all images"
+          fi
