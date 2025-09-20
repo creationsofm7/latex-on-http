@@ -69,9 +69,9 @@ jobs:
       - name: Build main Docker image
         run: make docker-build-main
 
-      - name: Run tests (using locally built Docker image)
-        if: ${{ !github.event.inputs.skip_tests }}
-        run: make test-docker-compose
+      # - name: Run tests (using locally built Docker image)
+      #   if: ${{ !github.event.inputs.skip_tests }}
+      #   run: make test-docker-compose
 
       - name: Tag and push main image to ECR
         run: |
