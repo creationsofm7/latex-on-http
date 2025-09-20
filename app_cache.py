@@ -8,8 +8,7 @@ Manage LaTeX-On-HTTP cache process lifecycle.
 :license: AGPL, see LICENSE for more details.
 """
 import os
-import sentry_sdk
-import sentry_sdk.integrations.flask
+import sys
 import logging.config
 import zmq
 from latexonhttp.caching.bridge import serialize_message, deserialize_message
@@ -68,17 +67,35 @@ ACTIONS_MAP = {
 
 
 if __name__ == "__main__":
-    logger.info("Starting LaTeX-On-HTTP cache process")
-    # Initializing cache metadata.
-    logger.info("Preparing cache...")
-    # Reset cache.
-    # (Flush cache on disk and init metadata).
-    do_reset_cache()
-    logger.info("Cache init process, done...")
-    rep_socket = context.socket(zmq.REP)
-    rep_socket.bind("tcp://*:10000")
-    dealer_socket = context.socket(zmq.DEALER)
-    dealer_socket.bind("tcp://*:10001")
+    try:
+        logger.info("=== Starting LaTeX-On-HTTP cache process ===")
+        logger.info(f"Python version: {sys.version}")
+        logger.info(f"Working directory: {os.getcwd()}")
+        logger.info(f"Environment variables: CACHE_HOST={os.environ.get('CACHE_HOST', 'not set')}")
+        
+        # Initializing cache metadata.
+        logger.info("Preparing cache...")
+        # Reset cache.
+        # (Flush cache on disk and init metadata).
+        do_reset_cache()
+        logger.info("Cache init process, done...")
+        
+        logger.info("Creating ZeroMQ sockets...")
+        rep_socket = context.socket(zmq.REP)
+        rep_socket.bind("tcp://*:10000")
+        dealer_socket = context.socket(zmq.DEALER)
+        dealer_socket.bind("tcp://*:10001")
+        
+        # Log that cache service is ready
+        logger.info("✅ Cache service is ready and listening on ports 10000 and 10001")
+        logger.info("Cache service entering main loop...")
+        
+    except Exception as e:
+        logger.error(f"❌ Cache service failed to start: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
     poller = zmq.Poller()
     poller.register(rep_socket, zmq.POLLIN)
     poller.register(dealer_socket, zmq.POLLIN)

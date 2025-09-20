@@ -10,8 +10,8 @@ Here are exposed the Rest API endpoints.
 """
 import os
 import logging.config
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
+# import sentry_sdk
+# from sentry_sdk.integrations.flask import FlaskIntegration
 from flask import Flask, request
 from flask_cors import CORS
 from latexonhttp.api.builds import builds_app
@@ -36,18 +36,23 @@ logging.config.dictConfig(
     }
 )
 
-if os.environ.get("SENTRY_DSN"):
-    sentry_sdk.init(
-        dsn=os.environ["SENTRY_DSN"],
-        integrations=[FlaskIntegration()],
-        # By default the SDK will try to use the SENTRY_RELEASE
-        # environment variable, or infer a git commit
-        # SHA as release, however you may want to set
-        # something more human-readable.
-        release=get_api_version(),
-    )
+# if os.environ.get("SENTRY_DSN"):
+#     sentry_sdk.init(
+#         dsn=os.environ["SENTRY_DSN"],
+#         integrations=[FlaskIntegration()],
+#         # By default the SDK will try to use the SENTRY_RELEASE
+#         # environment variable, or infer a git commit
+#         # SHA as release, however you may want to set
+#         # something more human-readable.
+#         release=get_api_version(),
+#     )
 
 app = Flask(__name__)
+
+# Log startup information
+logger = logging.getLogger(__name__)
+logger.info("Starting LaTeX-On-HTTP main application")
+
 app.register_blueprint(builds_app, url_prefix="/builds")
 app.register_blueprint(fonts_app, url_prefix="/fonts")
 app.register_blueprint(packages_app, url_prefix="/packages")

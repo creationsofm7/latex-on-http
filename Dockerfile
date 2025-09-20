@@ -44,6 +44,8 @@ ENV GOOSE_MIGRATION_DIR /app/latex-on-http/tools/migrations
 ENV GOOSE_DRIVER postgres
 
 COPY ./tools/entrypoint.sh ./tools/
+COPY ./start-both.sh ./start-both.sh
+RUN chmod +x ./start-both.sh
 
 EXPOSE 8080
 ENTRYPOINT ["/bin/bash", "tools/entrypoint.sh"]

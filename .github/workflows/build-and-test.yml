@@ -1,15 +1,15 @@
 name: build-and-test
-on:
-  push:
-    paths-ignore:
-      - '**.md'
-    branches:
-      - master
-  pull_request:
-    paths-ignore:
-      - '**.md'
-    branches:
-      - master
+# on:
+#   push:
+#     paths-ignore:
+#       - '**.md'
+#     branches:
+#       - master
+#   pull_request:
+#     paths-ignore:
+#       - '**.md'
+#     branches:
+#       - master
   workflow_dispatch:
     inputs:
       python_version:
